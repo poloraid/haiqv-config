@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tcp-services
+  namespace: deepops-ingress
+data:
+  445: "test/samba-service:445"

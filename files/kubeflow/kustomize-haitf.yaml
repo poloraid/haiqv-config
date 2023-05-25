@@ -1,0 +1,49 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  # Cert-Manager
+  - ../common/cert-manager/cert-manager/base
+  - ../common/cert-manager/kubeflow-issuer/base
+  # Istio
+  - ../common/istio-1-14/istio-crds/base
+  - ../common/istio-1-14/istio-namespace/base
+  - ../common/istio-1-14/istio-install/base
+  # OIDC Authservice
+  - ../common/oidc-authservice/base
+  # Dex
+  - ../common/dex/overlays/istio
+  # Kubeflow namespace
+  - ../common/kubeflow-namespace/base
+  # Kubeflow Roles
+  - ../common/kubeflow-roles/base
+  # Kubeflow Istio Resources
+  - ../common/istio-1-14/kubeflow-istio-resources/base
+  # Central Dashboard
+  - ../apps/centraldashboard/upstream/overlays/kserve
+  # Admission Webhook
+  - ../apps/admission-webhook/upstream/overlays/cert-manager
+  # Jupyter Web App
+  - ../apps/jupyter/jupyter-web-app/upstream/overlays/istio
+  # Notebook Controller
+  - ../apps/jupyter/notebook-controller/upstream/overlays/kubeflow
+  # Profiles + KFAM
+  - ../apps/profiles/upstream/overlays/kubeflow
+  # Volumes Web App
+  - ../apps/volumes-web-app/upstream/overlays/istio
+  # Tensorboards Controller
+  - ../apps/tensorboard/tensorboard-controller/upstream/overlays/kubeflow
+  # Tensorboard Web App
+  - ../apps/tensorboard/tensorboards-web-app/upstream/overlays/istio
+  # User namespace (deprecated)
+  # - ../common/user-namespace/base
+
+  # HAIQV portal
+  - ../apps/haiqv/frontend/base
+  - ../apps/haiqv/backend/base
+
+  # custom metric exporter
+  - ../apps/haiqv/custom-metric-exporter/base
+
+  # gpu metric exporter (deprecated)
+  # - ../apps/haiqv/gpu-metric-exporter/base

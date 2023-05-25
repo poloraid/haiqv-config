@@ -1,0 +1,14 @@
+image:
+  debug: true
+
+auth:
+  postgresPassword: "postgresql_1123"
+  password: "postgresql_1123"
+
+primary:
+  persistence:
+    enabled: true
+    existingClaim: "data-postgresql-longhorn"
+
+volumePermissions:
+  enabled: true

@@ -1,0 +1,205 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: elasticsearch-delete-index
+  namespace: logging
+spec:
+  schedule: "0 0 * * *"
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 86400
+      template:
+        spec:
+          containers:
+          - name: delete-index
+            image: skxogh252/curl-coreutils:7.87.0
+            command:
+              - "/bin/sh"
+              - "-c"
+              - |
+                HOST="http://elasticsearch-master:9200"
+
+                delete_document () {
+                  local statuses=""
+                  local aliases="$@"
+                  local target_date=$(date -d "1 days 3 months ago" +%F)
+                  set -- -XPOST -s --fail -L
+
+                  if [ -n "${ELASTICSEARCH_USERNAME}" ] && [ -n "${ELASTICSEARCH_PASSWORD}" ]; then
+                    set -- "$@" -u "${ELASTICSEARCH_USERNAME}:${ELASTICSEARCH_PASSWORD}"
+                  fi
+
+                  for alias in ${aliases}
+                  do
+                    DELETION_STATUS=$(curl --output /dev/null --write-out "%{http_code}" -k "$@" "${HOST}/${alias}/_delete_by_query" -H 'kbn-xsrf: true' -H 'Content-Type: application/json' -d '{"query": {"range": {"@timestamp": {"lt": '"\"${target_date}T00:00:00.000Z\""'}}}}')
+
+                    if [ "${DELETION_STATUS}" -eq 200 ]; then
+                      echo "Info: documents less then '${target_date}T00:00:00.000Z' in '${alias}' index deleted"
+                    else
+                      echo "Error: Got HTTP code ${DELETION_STATUS} for deleting document less then '${target_date}T00:00:00.000Z' in '${alias}' index, but expected 200"
+                    fi
+                    statuses="${statuses} ${DELETION_STATUS}"
+                  done
+
+                  for status in ${statuses}
+                  do
+                    if [ "${status}" -ne 200 ]; then
+                      echo "Error: document deletion failed"
+                      exit 1
+                    fi
+                  done
+
+                  echo "Info: documents deletion completed"
+                  exit 0
+                }
+
+                delete_document "log" "metric"
+
+          restartPolicy: OnFailure
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: haiqv-elasticsearch-dump-prom-index
+  namespace: logging
+spec:
+  schedule: "5 0 * * *"
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 86400
+      template:
+        spec:
+          containers:
+          - name: elasticsearch-dump-prom-index
+            # image: skxogh252/haiqvctl:0.2.6
+            image: kong2303/haiqvctl:0.2.6
+            env:
+              - name: INITIAL_DELAY_SECONDS
+                value: "3"
+              - name: PERIOD_SECONDS
+                value: "5"
+              - name: FAILURE_THRESHOLD
+                value: "5"
+              - name: HAIQV_ES_DUMP_DIR
+                value: "/usr/share/elasticsearch/backup/"
+              - name: HAIQV_ES_DUMP_PROM_INDEX
+                value: "metric"
+            volumeMounts:
+              - name: elasticsearch-backup
+                mountPath: /usr/share/elasticsearch/backup
+            command: 
+              - "/bin/sh"
+              - "-c"
+              - |
+                  is_failed() {
+                    if [ $1 == 1 ]; then
+                      echo "Failed."
+                      exit 1
+                    fi
+                  }
+
+                  echo "Wait initial delay seconds. : $INITIAL_DELAY_SECONDS"
+                  sleep $INITIAL_DELAY_SECONDS
+
+                  haiqvctl elasticsearch health
+                  is_failed $?
+
+                  gte=$(date -d "1 days ago" +%F)
+                  lt=$(date +%F)
+                  basic_res_filename=basic_res_${gte}
+                  gpu_res_filename=gpu_res_${gte}
+                  statuses=""
+
+                  haiqvctl elasticsearch dump prom-index $HAIQV_ES_DUMP_PROM_INDEX -d $HAIQV_ES_DUMP_DIR -f ${basic_res_filename} -srt '@timestamp' -q '{"bool":{"filter":[{"bool":{"should":[{"exists":{"field":"prometheus.query.CPU_USAGE"}},{"exists":{"field":"prometheus.query.MEMORY_WORKING_SET"}}],"minimum_should_match":1}},{"range":{"@timestamp":{"gte":'"\"${gte}\""',"lt":'"\"${lt}\""'}}}]}}' -c
+                  statuses="${statuses} ${?}"
+
+                  haiqvctl elasticsearch dump prom-index $HAIQV_ES_DUMP_PROM_INDEX -d $HAIQV_ES_DUMP_DIR -f ${gpu_res_filename} -srt '@timestamp' -q '{"bool":{"filter":[{"bool":{"must_not":[{"exists":{"field":"prometheus.query.CPU_USAGE"}},{"exists":{"field":"prometheus.query.MEMORY_WORKING_SET"}}],"minimum_should_match":1}},{"range":{"@timestamp":{"gte":'"\"${gte}\""',"lt":'"\"${lt}\""'}}}]}}' -c
+                  statuses="${statuses} ${?}"
+
+                  for status in ${statuses}
+                  do
+                    is_failed $status
+                  done
+
+                  echo "Completed."
+          volumes:
+            - name: elasticsearch-backup
+              persistentVolumeClaim:
+                claimName: elasticsearch-backup
+          restartPolicy: OnFailure
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: haiqv-elasticsearch-delete-documents
+  namespace: logging
+spec:
+  schedule: "5 0 * * *"
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 86400
+      template:
+        spec:
+          containers:
+          - name: elasticsearch-delete-documents
+            # image: skxogh252/haiqvctl:0.2.6
+            image: kong2303/haiqvctl:0.2.6
+            env:
+              - name: INITIAL_DELAY_SECONDS
+                value: "3"
+              - name: PERIOD_SECONDS
+                value: "5"
+              - name: FAILURE_THRESHOLD
+                value: "5"
+              - name: HAIQV_ES_DUMP_DIR
+                value: "/usr/share/elasticsearch/backup/"
+              - name: HAIQV_ES_DELETE_INDICES
+                value: "log metric"
+            volumeMounts:
+              - name: elasticsearch-backup
+                mountPath: /usr/share/elasticsearch/backup
+            command: 
+              - "/bin/sh"
+              - "-c"
+              - |
+                  is_failed() {
+                    if [ $1 == 1 ]; then
+                      echo "Failed."
+                      exit 1
+                    fi
+                  }
+
+                  echo "Wait initial delay seconds. : $INITIAL_DELAY_SECONDS"
+                  sleep $INITIAL_DELAY_SECONDS
+
+                  haiqvctl elasticsearch health
+                  is_failed $?
+
+                  gte=$(date -d "1 days ago  3 months ago" +%F)
+                  lt=$(date -d "3 months ago" +%F)
+                  basic_res_filename=basic_res_${gte}
+                  gpu_res_filename=gpu_res_${gte}
+                  statuses=""
+
+                  for index in $HAIQV_ES_DELETE_INDICES
+                  do
+                    haiqvctl elasticsearch delete documents $index -q '{"range":{"@timestamp":{"gte":'"\"${gte}\""',"lt":'"\"${lt}\""'}}}'
+                    statuses="${statuses} ${?}"
+                    rm -rf ${HAIQV_ES_DUMP_DIR}${basic_res_filename}*
+                    rm -rf ${HAIQV_ES_DUMP_DIR}${gpu_res_filename}*
+                  done
+
+                  echo "Dumped file deleted."
+
+                  for status in ${statuses}
+                  do
+                    is_failed $status
+                  done
+
+                  echo "Completed."
+          volumes:
+            - name: elasticsearch-backup
+              persistentVolumeClaim:
+                claimName: elasticsearch-backup
+          restartPolicy: OnFailure

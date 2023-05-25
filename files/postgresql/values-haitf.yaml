@@ -1,0 +1,323 @@
+image:
+  debug: true
+
+auth:
+  postgresPassword: "postgresql_1123"
+  password: "postgresql_1123"
+
+primary:
+  initdb:
+    user: "postgres"
+    password: "postgresql_1123"
+    scripts:
+      00_init_db.sql: |
+        create database dex;
+        \c dex;
+        create sequence public.haiqv_grafana_id_seq as integer;
+        create sequence public.haiqv_user_id_seq as integer;
+        create sequence public.haiqv_member_id_seq as integer;
+        create sequence public.haiqv_workspace_id_seq as integer;
+        create sequence public.haiqv_history_id_seq as integer;
+        create sequence public.haiqv_resource_id_seq as integer;
+        create sequence public.haiqv_resource_member_id_seq as integer;
+        create sequence public.haiqv_resource_type_id_seq as integer;
+        create sequence public.haiqv_image_id_seq as integer;
+        create sequence public.haiqv_image_type_id_seq as integer;
+        create sequence public.haiqv_history_category_id_seq  as integer;
+
+        create table public.haiqv_user
+        (
+            id integer default nextval('public.haiqv_user_id_seq'::regclass) not null
+                constraint haiqv_user_pk primary key,
+	        email varchar not null
+                constraint haiqv_user_email_uk unique,
+	        username varchar not null,
+	        user_id varchar not null,
+	        is_admin boolean default false not null,
+	        reg_date timestamp default now(),
+	        mod_date timestamp default now(),
+	        password_date timestamp default now(),
+	        fail_login integer default 0,
+	        password bytea,
+	        latest_token varchar,
+	        latest_session varchar
+        );
+
+        INSERT INTO haiqv_user
+        (
+          email, username, user_id, is_admin, reg_date, mod_date, password_date, fail_login, "password", latest_token, latest_session
+        ) VALUES(
+          'haiqv@hanwha.com', 
+          'haiqv', 
+          'haiqv', 
+          true, 
+          now(), 
+          now(), 
+          now(), 
+          0, 
+          (decode('243262243130246d76617043534855554332433243492f68744a754f2e68702e61316c62465136766f6869524732737a764d6c4e325a636d63447253', 'hex')),
+          '', 
+          ''
+        );
+
+        create table public.haiqv_grafana
+        (
+            id integer default nextval('public.haiqv_grafana_id_seq'::regclass) not null
+                constraint haiqv_grafana_pk primary key,
+            panel varchar not null,
+            "order" integer default 1 not null,
+            description varchar,
+            url varchar not null,
+            reg_date timestamp default now(),
+            modifier varchar
+        );
+
+        INSERT INTO public.haiqv_grafana (id, panel, "order", description, url, reg_date, modifier) VALUES (1, 'G_CLUSTER_DASHBOARD', 1, '클러스터 대시보드', '/grafana/d/9h8SeV1Vz/cluster?orgId=2&refresh=5s', '2023-01-11 14:05:47.922889', 'taehona');
+        INSERT INTO public.haiqv_grafana (id, panel, "order", description, url, reg_date, modifier) VALUES (2, 'G_WORKSPACE_DASHBOARD', 1, '워크스페이스 대시보드', '/grafana/d/4fIveV14k/workspace?orgId=2&refresh=5s', '2023-01-12 10:00:13.217045', 'taehona');
+        INSERT INTO public.haiqv_grafana (id, panel, "order", description, url, reg_date, modifier) VALUES (3, 'G_WORKSPACE_STATUS', 1, '워크스페이스별 전체/할당/사용 현황 Card 형', '/grafana/d-solo/fenc64J4k/namespace?orgId=2&refresh=5s&var-node=All&panelId=83', '2023-01-09 14:01:34.387816', 'taehona');
+        INSERT INTO public.haiqv_grafana (id, panel, "order", description, url, reg_date, modifier) VALUES (4, 'G_CLUSTER_AVAILABLE', 1, '클러스터 내 리소스 가용 현황 Modal', '/grafana/d-solo/29KRXch4z/node?orgId=2&refresh=5s&var-namespace=All&panelId=155', '2023-01-09 14:01:34.387816', 'ziippy');
+        INSERT INTO public.haiqv_grafana (id, panel, "order", description, url, reg_date, modifier) VALUES (5, 'G_WORKSPACE_AVAILABLE', 1, '워크스페이스별 리소스가용 현황 Modal', '/grafana/d-solo/lhNp6V1Vk/notebook?orgId=2&refresh=5s&panelId=102', '2023-01-09 14:01:34.387816', 'taehona');
+        INSERT INTO public.haiqv_grafana (id, panel, "order", description, url, reg_date, modifier) VALUES (6, 'G_NOTEBOOK_STATUS', 1, '노트북 화면 상단 패널 내 각 노트북의 리소스 사용량', '/grafana/d-solo/lhNp6V1Vk/notebook?orgId=2&refresh=5s&panelId=104&theme=dark', '2023-02-20 05:12:29.850190', 'taehona');
+
+        create table public.haiqv_workspace
+        (
+            id integer default nextval('public.haiqv_workspace_id_seq'::regclass) not null
+                constraint haiqv_workspace_pk primary key,
+	        name varchar not null,
+	        open varchar not null,
+	        close varchar not null,
+	        gpu integer not null,
+	        cpu real not null,
+	        memory integer not null,
+	        storage integer not null,
+	        status varchar not null,
+	        reg_date timestamp default now() not null,
+	        mod_date timestamp default now() not null,
+	        modifier varchar not null,
+	        owner_email varchar
+		        constraint "fk_owner_email"
+			        references public.haiqv_user (email)
+        );
+
+        create table public.haiqv_member
+        (
+            id integer default nextval('public.haiqv_member_id_seq'::regclass) not null
+                constraint haiqv_member_pk primary key,
+	        reg_date timestamp default now() not null,
+	        mod_date timestamp default now() not null,
+	        modifier varchar not null,
+	        user_email varchar
+		        constraint "fk_user_email"
+			        references public.haiqv_user (email)
+				        on update cascade on delete cascade,
+	        workspace_id integer
+		        constraint "fk_workspace_id"
+			        references public.haiqv_workspace
+				        on update cascade on delete cascade,
+	        constraint haiqv_member_user_email_workspace_id_uk
+		        unique (user_email, workspace_id)
+        );
+
+        create table public.haiqv_resource_type
+        (
+            id integer default nextval('public.haiqv_resource_type_id_seq'::regclass) not null
+                constraint haiqv_resource_type_pk primary key,
+            type_name varchar not null
+                constraint haiqv_resource_type_uk unique
+        );
+        INSERT INTO public.haiqv_resource_type (id, type_name) VALUES (1, 'notebook');
+        INSERT INTO public.haiqv_resource_type (id, type_name) VALUES (2, 'volume');
+        INSERT INTO public.haiqv_resource_type (id, type_name) VALUES (3, 'tensorboard');
+
+        create table public.haiqv_resource
+        (
+	        id integer default nextval('public.haiqv_resource_id_seq'::regclass) not null
+		        constraint haiqv_notebook_pk primary key,
+	        resource_name varchar not null,
+	        workspace_id integer not null
+		        constraint haiqv_notebook_workspace_fk
+			        references public.haiqv_workspace
+				        on update cascade on delete cascade,
+	        resource_type varchar not null
+		        constraint haiqv_resource_haiqv_resource_type_fk
+			        references public.haiqv_resource_type (type_name)
+				        on update cascade on delete restrict,
+	        reg_date timestamp default now() not null,
+	        is_public boolean default false not null,
+	        constraint haiqv_resource_uk
+		        unique (resource_type, resource_name, workspace_id)
+        );
+
+        create table public.haiqv_resource_member
+        (
+	        id integer default nextval('public.haiqv_resource_member_id_seq'::regclass) not null
+		        constraint haiqv_resource_member_pk primary key,
+	        resource_id integer not null
+		        constraint haiqv_resource_member_id_fk
+			        references public.haiqv_resource
+				        on delete cascade,
+	        user_email varchar not null
+		        constraint haiqv_resource_member_email_fk
+			        references public.haiqv_user (email)
+				        on delete restrict,
+	        member_id integer
+		        constraint haiqv_resource_member_member_id_fk
+			        references public.haiqv_member
+				        on update cascade on delete cascade,
+	        is_owner boolean default false not null,
+	        constraint haiqv_resource_member_uk unique (resource_id, member_id)
+        );
+
+        create table public.haiqv_image_type
+        (
+            id integer default nextval('public.haiqv_image_type_id_seq'::regclass) not null
+                constraint haiqv_image_type_pk primary key,
+            type_name varchar not null
+                constraint haiqv_image_type_uk unique,
+            description varchar
+        );
+        INSERT INTO public.haiqv_image_type (id, type_name, description) VALUES (1, 'jupyter', 'jupyterLab');
+        INSERT INTO public.haiqv_image_type (id, type_name, description) VALUES (2, 'group-one', 'vscode');
+
+        create table public.haiqv_image
+        (
+	        id integer default nextval('public.haiqv_image_id_seq'::regclass) not null
+		        constraint haiqv_image_pk primary key,
+	        image_name varchar not null,
+	        image_type varchar not null
+		        constraint haiqv_image_fk
+			        references public.haiqv_image_type (type_name),
+	        image_url varchar not null
+		        constraint haiqv_image_uk_url unique,
+	        reg_date timestamp default now() not null,
+	        mod_date timestamp,
+	        description varchar,
+	        use_yn boolean default true,
+	        constraint haiqv_image_uk_name_type unique (image_name, image_type)
+        );
+
+        create table public.haiqv_history_category
+        (
+            id integer default nextval('public.haiqv_history_category_id_seq'::regclass) not null,
+            category_name varchar not null
+                constraint haiqv_history_category_pk unique,
+            description varchar
+        );
+        INSERT INTO public.haiqv_history_category (id, category_name, description) VALUES (1, 'kubernetes', null);
+        INSERT INTO public.haiqv_history_category (id, category_name, description) VALUES (2, 'notebook', null);
+        INSERT INTO public.haiqv_history_category (id, category_name, description) VALUES (3, 'tensorboard', null);
+        INSERT INTO public.haiqv_history_category (id, category_name, description) VALUES (4, 'volume', null);
+        INSERT INTO public.haiqv_history_category (id, category_name, description) VALUES (5, 'resource', null);
+        INSERT INTO public.haiqv_history_category (id, category_name, description) VALUES (6, 'image', null);
+        INSERT INTO public.haiqv_history_category (id, category_name, description) VALUES (7, 'member', null);
+        INSERT INTO public.haiqv_history_category (id, category_name, description) VALUES (8, 'user', null);
+        INSERT INTO public.haiqv_history_category (id, category_name, description) VALUES (9, 'workspace', null);
+        INSERT INTO public.haiqv_history_category (id, category_name, description) VALUES (10, 'harbor', null);
+
+        create table public.haiqv_history
+        (
+	        id integer default nextval('public.haiqv_history_id_seq'::regclass) not null primary key,
+	        datetime timestamp default now() not null,
+	        workspace_id integer,
+	        email varchar not null,
+	        category varchar not null
+		        constraint haiqv_history_category_fk
+			        references public.haiqv_history_category (category_name),
+	        endpoint varchar not null,
+	        method varchar not null,
+	        req_data jsonb,
+	        res_data jsonb,
+	        result varchar
+        );
+
+        create index haiqv_history_datetime_index
+	        on public.haiqv_history using brin (datetime);
+
+      # 00_init_db.sql: |
+      #   create database dex;
+      #   \c dex;
+      #   CREATE TABLE haiqv_user 
+      #   (
+      #     email varchar NOT NULL,
+      #     username varchar NOT NULL,
+      #     user_id varchar NOT NULL,
+      #     is_admin bool NOT NULL DEFAULT false,
+      #     reg_date timestamp NULL DEFAULT now(),
+      #     mod_date timestamp NULL DEFAULT now(),
+      #     password_date timestamp NULL DEFAULT now(),
+      #     fail_login int4 NULL DEFAULT 0,
+      #     "password" bytea NULL,
+      #     latest_token varchar NULL,
+      #     latest_session varchar NULL,
+      #     CONSTRAINT haiqv_user_pkey PRIMARY KEY (email)
+      #   );
+      #   INSERT INTO haiqv_user
+      #   (
+      #     email, username, user_id, is_admin, reg_date, mod_date, password_date, fail_login, "password", latest_token, latest_session
+      #   ) VALUES(
+      #     'haiqv@hanwha.com', 
+      #     'haiqv', 
+      #     'haiqv', 
+      #     true, 
+      #     now(), 
+      #     now(), 
+      #     now(), 
+      #     0, 
+      #     (decode('243262243130246d76617043534855554332433243492f68744a754f2e68702e61316c62465136766f6869524732737a764d6c4e325a636d63447253', 'hex')),
+      #     '', 
+      #     ''
+      #   );
+      #   CREATE TABLE public.haiqv_grafana (
+      #     id serial4 NOT NULL,
+      #     panel varchar NOT NULL,
+      #     "order" int4 NOT NULL DEFAULT 1,
+      #     description varchar NULL,
+      #     url varchar NOT NULL,
+      #     reg_date timestamp NULL DEFAULT now(),
+      #     modifier varchar NULL,
+      #     CONSTRAINT haiqv_grafana_pkey PRIMARY KEY (id)
+      #   );
+      #   INSERT INTO public.haiqv_grafana (panel,"order",description,url,reg_date,modifier) VALUES
+      #      ('G_CLUSTER_DASHBOARD',1,'클러스터 대시보드','/grafana/d/USMK9o2Vk/cluster?orgId=2&refresh=30s','2023-01-11 14:05:47.922889','ziippy'),
+      #      ('G_WORKSPACE_DASHBOARD',1,'워크스페이스 대시보드','/grafana/d/n_DVQ124k/workspace?orgId=2&refresh=30s','2023-01-12 10:00:13.217045','ziippy'),
+      #      ('G_POD',1,'Pod 별 CPU 사용 그래프','/grafana/d-solo/r3mNGy5Vy/notebook?orgId=2&refresh=30s&panelId=81','2023-01-10 12:07:50.765972','ziippy'),
+      #      ('G_POD',2,'Pod 별 GPU 사용률','/grafana/d-solo/r3mNGy5Vy/notebook?orgId=2&refresh=30s&panelId=80','2023-01-10 12:07:50.765972','ziippy'),
+      #      ('G_POD',3,'Pod 별 MEM 사용 그래프','/grafana/d-solo/r3mNGy5Vy/notebook?orgId=2&refresh=30s&panelId=83','2023-01-10 12:07:50.765972','ziippy'),
+      #      ('G_POD',4,'Pod 별 CPU 사용률','/grafana/d-solo/r3mNGy5Vy/notebook?orgId=2&refresh=30s&panelId=84','2023-01-10 12:07:50.765972','ziippy'),
+      #      ('G_POD',5,'Pod 별 CPU 사용 그래프','/grafana/d-solo/r3mNGy5Vy/notebook?orgId=2&refresh=30s&panelId=53','2023-01-10 12:07:50.765972','ziippy'),
+      #      ('G_POD',6,'Pod 별 CPU 사용률','/grafana/d-solo/r3mNGy5Vy/notebook?orgId=2&refresh=30s&panelId=82','2023-01-10 12:07:50.765972','ziippy'),
+      #      ('G_WORKSPACE_STATUS',1,'워크스페이스별 전체/할당/사용 현황 Card 형','/grafana/d-solo/r3mNGy5Vl/namespace?orgId=2&refresh=30s&var-node=All&panelId=83','2023-01-09 14:01:34.387816','ziippy'),
+      #      ('G_CLUSTER_AVAILABLE',1,'클러스터 내 가용 현황 Card 형','/grafana/d-solo/29KRXch4z/node?orgId=2&refresh=30s&var-namespace=All&panelId=155','2023-01-09 14:01:34.387816','ziippy');
+      #   INSERT INTO public.haiqv_grafana (panel,"order",description,url,reg_date,modifier) VALUES
+      #      ('G_WORKSPACE_AVAILABLE',1,'워크스페이스별 CPU 가용 현황 Card 형','/grafana/d-solo/r3mNGy5Vy/notebook?orgId=2&refresh=30s&panelId=97','2023-01-09 14:01:34.387816','ziippy'),
+      #      ('G_WORKSPACE_AVAILABLE',2,'워크스페이스별 GPU 가용 현황 Card 형','/grafana/d-solo/r3mNGy5Vy/notebook?orgId=2&refresh=30s&panelId=98','2023-01-09 14:01:34.387816','ziippy'),
+      #      ('G_WORKSPACE_AVAILABLE',3,'워크스페이스별 Memory 가용 현황 Card 형','/grafana/d-solo/r3mNGy5Vy/notebook?orgId=2&refresh=30s&panelId=99','2023-01-09 14:01:34.387816','ziippy'),
+      #      ('G_WORKSPACE_AVAILABLE',4,'워크스페이스별 Storage 가용 현황 Card 형','/grafana/d-solo/r3mNGy5Vy/notebook?orgId=2&refresh=30s&panelId=100','2023-01-09 14:01:34.387816','ziippy');
+      #   CREATE TABLE haiqv_member (
+      #     id serial4 NOT NULL,
+      #     reg_date timestamp NOT NULL DEFAULT now(),
+      #     mod_date timestamp NOT NULL DEFAULT now(),
+      #     modifier varchar NOT NULL,
+      #     user_email varchar NULL,
+      #     workspace_id int4 NULL,
+      #     CONSTRAINT "PK_97cbbe986ce9d14ca5894fdc072" PRIMARY KEY (id)
+      #   );
+      #   CREATE TABLE haiqv_workspace (
+      #     id serial4 NOT NULL,
+      #     "name" varchar NOT NULL,
+      #     "open" varchar NOT NULL,
+      #     "close" varchar NOT NULL,
+      #     gpu int4 NOT NULL,
+      #     cpu float4 NOT NULL,
+      #     memory int4 NOT NULL,
+      #     "storage" int4 NOT NULL,
+      #     status varchar NOT NULL,
+      #     reg_date timestamp NOT NULL DEFAULT now(),
+      #     mod_date timestamp NOT NULL DEFAULT now(),
+      #     modifier varchar NOT NULL,
+      #     owner_email varchar NULL,
+      #     CONSTRAINT "PK_ca86b6f9b3be5fe26d307d09b49" PRIMARY KEY (id)
+      #   );
+      #   ALTER TABLE haiqv_workspace ADD CONSTRAINT "FK_8a81e7f0e4802359f7c50c93294" FOREIGN KEY (owner_email) REFERENCES haiqv_user(email);
+      #   ALTER TABLE haiqv_member ADD CONSTRAINT "FK_93375b1c1846744c36dfe96ae52" FOREIGN KEY (user_email) REFERENCES haiqv_user(email);
+      #   ALTER TABLE haiqv_member ADD CONSTRAINT "FK_e80fc89cfe6e552169a10be8d2d" FOREIGN KEY (workspace_id) REFERENCES haiqv_workspace(id);

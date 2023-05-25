@@ -1,0 +1,48 @@
+# To customize initial username and password, edit the email and hash in the
+# staticPasswords section below.
+#
+# Current credentials:
+# - email: deepops@example.com
+# - password: deepops
+#
+# To produce a hash, run:
+# $ python3 -c 'from passlib.hash import bcrypt; import getpass; print(bcrypt.using(rounds=12, ident="2y").hash(getpass.getpass()))'
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dex
+data:
+  config.yaml: |
+    issuer: http://dex.auth.svc.cluster.local:5556/dex
+    storage:
+      type: postgres
+      config:
+        host: postgresql.utils.svc.cluster.local
+        port: 5432
+        database: dex
+        user: postgres
+        password: postgresql_1123
+        ssl:
+          mode: disable
+    web:
+      http: 0.0.0.0:5556
+    logger:
+      level: "debug"
+      format: text
+    oauth2:
+      skipApprovalScreen: true
+    enablePasswordDB: true
+    staticPasswords:
+    - email: haiqvadmin@hanwha.com
+      hash: $2b$12$lyjpcIaV0zqb/bK26Be8iuRKbmP4hzwDx6YRGD.RiqA6CumGRBDZi
+      # https://github.com/dexidp/dex/pull/1601/commits
+      # FIXME: Use hashFromEnv instead
+      username: 관리자
+      userID: "15841185641784"
+    staticClients:
+    # https://github.com/dexidp/dex/pull/1664
+    - idEnv: OIDC_CLIENT_ID
+      redirectURIs: ["/login/oidc"]
+      name: 'Dex Login Application'
+      secretEnv: OIDC_CLIENT_SECRET

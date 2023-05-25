@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: haiqv-frontend
+    service: haiqv-frontend
+  name: haiqv-frontend
+  namespace: kubeflow
+spec:
+  ports:
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: 9999
+  selector:
+    app: haiqv-frontend
+  type: ClusterIP

@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: samba-deployment
+  namespace: test
+spec:
+  selector:
+    matchLabels:
+      app: samba
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: samba
+    spec:
+      volumes:
+      - name: hostpath
+        hostPath:
+          path: /home/sunbean/deepops
+      containers:
+        - name: samba
+          image: sunbean/samba:test3
+          ports:
+            - containerPort: 445
+          volumeMounts:
+          - mountPath: /home/sunbean/deepops
+            name: hostpath
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: samba-service
+  namespace: test
+spec:
+  selector:
+    app: samba
+  ports:
+    - name: smb
+      port: 445
+      targetPort: 445
+  type: ClusterIP

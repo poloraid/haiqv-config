@@ -1,0 +1,21 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: haiqv-portal
+  namespace: kubeflow
+spec:
+  gateways:
+    - kubeflow-gateway
+  hosts:
+    - "*"
+  http:
+    - match:
+        - uri:
+            prefix: /
+      rewrite:
+        uri: /
+      route:
+        - destination:
+            host: haiqv-frontend.kubeflow.svc.cluster.local
+            port:
+              number: 80

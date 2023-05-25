@@ -1,0 +1,10 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dex
+spec:
+  template:
+    spec:
+      containers:
+        - image: skxogh252/dex:1.3
+          name: dex

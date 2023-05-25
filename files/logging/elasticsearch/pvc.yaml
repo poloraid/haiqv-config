@@ -1,0 +1,15 @@
+# es gpu 사용량 떨궈줄 pvc
+
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: elasticsearch-backup
+  namespace: logging
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: nfs-client
+  volumeMode: Filesystem

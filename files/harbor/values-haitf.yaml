@@ -1,0 +1,21 @@
+---
+expose:
+  tls:
+    certSource: secret
+    secret:
+      secretName: "tls-secret"
+      notarySecretName: "tls-secret"
+  ingress:
+    hosts:
+      core: haitf-harbor.haiqv.ai
+      notary: haitf-harbor-notary.haiqv.ai
+    className: "nginx"
+
+externalURL: https://haitf-harbor.haiqv.ai
+
+persistence:
+  persistentVolumeClaim:
+    registry:
+      size: 500Gi
+
+harborAdminPassword: "admin"

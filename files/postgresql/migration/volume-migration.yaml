@@ -1,0 +1,38 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: volume-migration
+  namespace: utils
+spec:
+  completions: 1
+  parallelism: 1
+  backoffLimit: 3
+  template:
+    metadata:
+      name: volume-migration
+      labels:
+        name: volume-migration
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: volume-migration
+          image: ubuntu
+          tty: true
+          command: [ "/bin/sh" ]
+          args: [ "-c", "cp -r -v /mnt/old/* /mnt/new" ]
+          # args: [ "-c", "sleep 86400" ]
+          volumeMounts:
+            - name: old-vol
+              mountPath: /mnt/old
+            - name: new-vol
+              mountPath: /mnt/new
+      volumes:
+        - name: old-vol
+          persistentVolumeClaim:
+            claimName: data-postgresql-0
+        - name: new-vol
+          persistentVolumeClaim:
+            claimName: data-postgresql-longhorn
+      nodeSelector:
+        # 현재 postgresql 설치된 노드에 올려야 함(RWO 볼륨을 마운트 해야하기 때문)
+        kubernetes.io/hostname: vm-4

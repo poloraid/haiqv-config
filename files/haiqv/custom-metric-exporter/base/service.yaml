@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: custom-metric-exporter-service
+  namespace: utils
+  labels:
+    app.kubernetes.io/component: exporter
+    app.kubernetes.io/name: custom-metric-exporter
+spec:
+  ports:
+    - name: metrics
+      port: 8000
+      protocol: TCP
+  selector:
+    app.kubernetes.io/component: exporter
+    app.kubernetes.io/name: custom-metric-exporter

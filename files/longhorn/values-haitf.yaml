@@ -1,0 +1,24 @@
+persistence:
+  # 변경 필요
+  defaultClassReplicaCount: 2 # 각 pv의 복사본의 개수 Haitf는 노드가 3대 이므로 2대에만 복제
+  defaultDataLocality: best-effort # pod가 배포되는 노드에 pvc가 마운트 되면 pv도 최대한 해당 노드에 복제본을 유지
+  reclaimPolicy: Retain # pvc 삭제시 longhorn 데이터 유지 / Delete는 삭제
+
+defaultSettings:
+  # 상황에 따라 변경 필요
+  defaultDataPath: /home/haitf/longhorn-data # pv 데이터 저장 위치(host)
+  defaultDataLocality: best-effort
+  replicaAutoBalance: best-effort
+  storageOverProvisioningPercentage: 100 # 물리디스크 크기대비 생성할수있는 퍼센트 default 200
+  storageMinimalAvailablePercentage: 25 # 최소로 남겨둘 볼륨비율
+  defaultReplicaCount: 2
+  disableSchedulingOnCordonedNode: true # cordon node엔 저장하지 않기
+
+# ingress setup
+# SSL 인증서로 변경 필요
+# ingress:
+#   enabled: true
+#   ingressClassName: nginx
+#   host: haitf-longhorn.haiqv.ai
+#   tls: true
+#   tlsSecret: tls-secret

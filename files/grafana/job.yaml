@@ -1,0 +1,88 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: haiqv-grafana-init
+  namespace: monitoring
+spec:
+  template:
+    spec:
+      containers:
+      - name: grafana-init
+        # image: skxogh252/haiqvctl:0.2.5
+        image: kong2303/haiqvctl:0.2.6
+        env:
+          - name: GF_SECURITY_ADMIN_USER
+            valueFrom:
+              secretKeyRef:
+                name: kube-prometheus-stack-grafana
+                key: admin-user
+          - name: GF_SECURITY_ADMIN_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: kube-prometheus-stack-grafana
+                key: admin-password
+          - name: INITIAL_DELAY_SECONDS
+            value: "3"
+          - name: PERIOD_SECONDS
+            value: "5"
+          - name: FAILURE_THRESHOLD
+            value: "5"
+          - name: GF_ORGANIZATION
+            value: haiqv
+          - name: HAIQV_GF_DATASOURCE_FILE_PATH
+            value: /tmp/datasources
+          - name: HAIQV_GF_DASHBOARD_FILE_PATH
+            value: /tmp/dashboards
+        volumeMounts:
+          - name: haiqv-datasources
+            mountPath: /tmp/datasources
+          - name: haiqv-dashboards
+            mountPath: /tmp/dashboards
+        command: 
+          - "/bin/sh"
+          - "-c"
+          - |
+              is_failed() {
+                if [ $1 == 1 ]; then
+                  echo "Failed."
+                  exit 1
+                fi
+              }
+
+              echo "Wait initial delay seconds. : $INITIAL_DELAY_SECONDS"
+              sleep $INITIAL_DELAY_SECONDS
+
+              haiqvctl grafana health
+              is_failed $?
+
+              statuses=""
+
+              haiqvctl grafana create organization $GF_ORGANIZATION
+              is_failed $?
+
+              org_id=$(haiqvctl grafana get organization -org $GF_ORGANIZATION | jq .id)
+              user_id=$(haiqvctl grafana get user -usr $GF_SECURITY_ADMIN_USER | jq .id)
+
+              haiqvctl grafana change organization $user_id $org_id
+              is_failed $?
+
+              haiqvctl grafana create datasource -f $HAIQV_GF_DATASOURCE_FILE_PATH
+              statuses="${statuses} ${?}"
+
+              haiqvctl grafana create dashboard -f $HAIQV_GF_DASHBOARD_FILE_PATH
+              statuses="${statuses} ${?}"
+
+              for status in ${statuses}
+              do
+                is_failed $status
+              done
+
+              echo "Completed."
+      volumes:
+        - name: haiqv-datasources
+          configMap:
+            name: haiqv-grafana-datasources
+        - name: haiqv-dashboards
+          configMap:
+            name: haiqv-grafana-dashboards
+      restartPolicy: OnFailure

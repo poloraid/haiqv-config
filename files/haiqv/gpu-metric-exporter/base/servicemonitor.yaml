@@ -1,0 +1,15 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  labels:
+    release: kube-prometheus-stack
+  name: gpu-metric-exporter
+  namespace: utils
+spec:
+  endpoints:
+    - port: metrics
+      interval: 1s
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: exporter
+      app.kubernetes.io/name: gpu-metric-exporter
